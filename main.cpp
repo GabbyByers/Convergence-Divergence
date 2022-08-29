@@ -143,6 +143,8 @@ public:
     Vec2 vel;
     Vec2 acc;
     int id = -1;
+    int i = -1;
+    int j = -1;
 
     Particle() {}
 
@@ -152,7 +154,7 @@ class Gas {
 public:
     int population = 1000;
     double repulsive_force = 0.01;
-    int cell_width = 100;
+    int cell_width = 20;
     double interaction_threshold = cell_width;
 
     int cell_i_max = game.screenWidth / cell_width;
@@ -207,7 +209,9 @@ public:
 
     void Iterate() {
         Partition();
+        ClearAcc();
         Repulsion();
+        //_LegacyRepulsion();
         Step();
         RespawnOffScreen();
     }
@@ -217,6 +221,8 @@ public:
         for (Particle& particle : particles) {
             int i = static_cast<int>(particle.pos.x) / cell_width;
             int j = static_cast<int>(particle.pos.y) / cell_width;
+            particle.i = i;
+            particle.j = j;
             std::vector<Particle*>& pointers = cells[i][j];
             pointers.push_back(&particle);
         }
@@ -232,6 +238,82 @@ public:
     }
 
     void Repulsion() {
+        for (Particle& particle : particles) {
+            int i = particle.i;
+            int j = particle.j;
+            for (Particle* pointer : cells[i][j]) {
+                Particle& neighbour = *pointer;
+                Repel(particle, neighbour);
+            }
+            if (j - 1 >= 0) {
+                for (Particle* pointer : cells[i][j - 1]) {
+                    Particle& neighbour = *pointer;
+                    Repel(particle, neighbour);
+                }
+            }
+            if (j + 1 < cell_j_max) {
+                for (Particle* pointer : cells[i][j + 1]) {
+                    Particle& neighbour = *pointer;
+                    Repel(particle, neighbour);
+                }
+            }
+            if (i - 1 >= 0) {
+                for (Particle* pointer : cells[i - 1][j]) {
+                    Particle& neighbour = *pointer;
+                    Repel(particle, neighbour);
+                }
+                if (j - 1 >= 0) {
+                    for (Particle* pointer : cells[i - 1][j - 1]) {
+                        Particle& neighbour = *pointer;
+                        Repel(particle, neighbour);
+                    }
+                }
+                if (j + 1 < cell_j_max) {
+                    for (Particle* pointer : cells[i - 1][j + 1]) {
+                        Particle& neighbour = *pointer;
+                        Repel(particle, neighbour);
+                    }
+                }
+            }
+            if (i + 1 < cell_i_max) {
+                for (Particle* pointer : cells[i + 1][j]) {
+                    Particle& neighbour = *pointer;
+                    Repel(particle, neighbour);
+                }
+                if (j - 1 >= 0) {
+                    for (Particle* pointer : cells[i + 1][j - 1]) {
+                        Particle& neighbour = *pointer;
+                        Repel(particle, neighbour);
+                    }
+                }
+                if (j + 1 < cell_j_max) {
+                    for (Particle* pointer : cells[i + 1][j + 1]) {
+                        Particle& neighbour = *pointer;
+                        Repel(particle, neighbour);
+                    }
+                }
+            }
+        }
+    }
+
+    void Repel(Particle& particle, Particle& neighbour) {
+        if (particle.id == neighbour.id) { return; }
+        double dx = particle.pos.x - neighbour.pos.x;
+        double dy = particle.pos.y - neighbour.pos.y;
+        double distance = sqrt(dx * dx + dy * dy);
+        if (distance > interaction_threshold) { return; }
+        Vec2 force;
+        force.x = particle.pos.x - neighbour.pos.x;
+        force.y = particle.pos.y - neighbour.pos.y;
+        force.Normalise();
+        double penetration = 1 - (distance / interaction_threshold);
+        double strength = penetration * repulsive_force;
+        force.Scale(strength);
+        particle.acc.x += force.x;
+        particle.acc.y += force.y;
+    }
+
+    void _LegacyRepulsion() {
         ClearAcc();
         for (Particle& particle : particles) {
             for (Particle& neighbour : particles) {
@@ -360,27 +442,25 @@ int main()
 
         window.clear(sf::Color(0, 0, 0));
 
-        for (int i = 0; i < gas.cell_i_max; i++) {
-            for (int j = 0; j < gas.cell_j_max; j++) {
-                const sf::Text& text = text_cords[i][j];
-                window.draw(text);
-            }
-        }
-
-        for (int i = 0; i < gas.cell_i_max; i++) {
-            for (int j = 0; j < gas.cell_j_max; j++) {
-                sf::Text& text = text_count[i][j];
-                int num = gas.cells[i][j].size();
-                text.setString(std::to_string(num));
-            }
-        }
-
-        for (int i = 0; i < gas.cell_i_max; i++) {
-            for (int j = 0; j < gas.cell_j_max; j++) {
-                const sf::Text& text = text_count[i][j];
-                window.draw(text);
-            }
-        }
+        //for (int i = 0; i < gas.cell_i_max; i++) {
+        //    for (int j = 0; j < gas.cell_j_max; j++) {
+        //        const sf::Text& text = text_cords[i][j];
+        //        window.draw(text);
+        //    }
+        //}
+        //for (int i = 0; i < gas.cell_i_max; i++) {
+        //    for (int j = 0; j < gas.cell_j_max; j++) {
+        //        sf::Text& text = text_count[i][j];
+        //        int num = gas.cells[i][j].size();
+        //        text.setString(std::to_string(num));
+        //    }
+        //}
+        //for (int i = 0; i < gas.cell_i_max; i++) {
+        //    for (int j = 0; j < gas.cell_j_max; j++) {
+        //        const sf::Text& text = text_count[i][j];
+        //        window.draw(text);
+        //    }
+        //}
 
         window.draw(&horizontal[0], horizontal.size(), sf::Lines);
         window.draw(&verticle[0], verticle.size(), sf::Lines);
