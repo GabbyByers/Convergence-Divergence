@@ -150,9 +150,9 @@ public:
 
 class Gas {
 public:
-    int population = 100;
-    double repulsive_force = 0.002;
-    int cell_width = 50;
+    int population = 1000;
+    double repulsive_force = 0.01;
+    int cell_width = 100;
     double interaction_threshold = cell_width;
 
     int cell_i_max = game.screenWidth / cell_width;
@@ -285,6 +285,49 @@ int main()
     Gas gas;
     gas.Initialise();
 
+    std::vector<std::vector<sf::Text>> text_cords;
+    std::vector<std::vector<sf::Text>> text_count;
+
+    for (int i = 0; i < gas.cell_i_max; i++) {
+        std::vector<sf::Text> column;
+        for (int j = 0; j < gas.cell_j_max; j++) {
+            sf::Text text;
+            column.push_back(text);
+        }
+        text_cords.push_back(column);
+    }
+
+    for (int i = 0; i < gas.cell_i_max; i++) {
+        std::vector<sf::Text> column;
+        for (int j = 0; j < gas.cell_j_max; j++) {
+            sf::Text text;
+            column.push_back(text);
+        }
+        text_count.push_back(column);
+    }
+
+    for (int i = 0; i < gas.cell_i_max; i++) {
+        for (int j = 0; j < gas.cell_j_max; j++) {
+            sf::Text& text = text_cords[i][j];
+            text.setFont(game.CourierPrime_Regular);
+            text.setCharacterSize(14);
+            text.setFillColor(sf::Color(100, 100, 100));
+            text.setPosition(i * gas.cell_width + 25, j * gas.cell_width + 25);
+            text.setString(std::to_string(i) + ", " + std::to_string(j));
+        }
+    }
+
+    for (int i = 0; i < gas.cell_i_max; i++) {
+        for (int j = 0; j < gas.cell_j_max; j++) {
+            sf::Text& text = text_count[i][j];
+            text.setFont(game.CourierPrime_Regular);
+            text.setCharacterSize(14);
+            text.setFillColor(sf::Color(100, 100, 100));
+            text.setPosition(i * gas.cell_width + 25, j * gas.cell_width + 40);
+            text.setString(std::to_string(gas.cells[i][j].size()));
+        }
+    }
+
     std::vector<sf::Vertex> horizontal;
     std::vector<sf::Vertex> verticle;
     sf::Color gridColor = sf::Color(30, 30, 30);
@@ -316,6 +359,29 @@ int main()
         gas.Iterate();
 
         window.clear(sf::Color(0, 0, 0));
+
+        for (int i = 0; i < gas.cell_i_max; i++) {
+            for (int j = 0; j < gas.cell_j_max; j++) {
+                const sf::Text& text = text_cords[i][j];
+                window.draw(text);
+            }
+        }
+
+        for (int i = 0; i < gas.cell_i_max; i++) {
+            for (int j = 0; j < gas.cell_j_max; j++) {
+                sf::Text& text = text_count[i][j];
+                int num = gas.cells[i][j].size();
+                text.setString(std::to_string(num));
+            }
+        }
+
+        for (int i = 0; i < gas.cell_i_max; i++) {
+            for (int j = 0; j < gas.cell_j_max; j++) {
+                const sf::Text& text = text_count[i][j];
+                window.draw(text);
+            }
+        }
+
         window.draw(&horizontal[0], horizontal.size(), sf::Lines);
         window.draw(&verticle[0], verticle.size(), sf::Lines);
         window.draw(&gas.vertices[0], gas.vertices.size(), sf::Points);
