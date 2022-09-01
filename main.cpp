@@ -29,7 +29,7 @@ Game game;
 class DisplayFPS {
 public:
     sf::Text text;
-    int historySize = 100;
+    int historySize = 30;
     std::vector <double> historicalFPS;
 
     DisplayFPS() {
@@ -137,8 +137,126 @@ public:
     }
 };
 
-class Particle {
+struct Box {
+    double x = 0;
+    double y = 0;
+    double dx = 0;
+    double dy = 0;
+
+    sf::Vertex A;
+    sf::Vertex B;
+    sf::Vertex C;
+    sf::Vertex D;
+
+    bool visible = true;
+
+    int id = 0;
+
+    Box() {}
+
+    Box(double init_x, double init_y, double init_dx, double init_dy) {
+        x = init_x;
+        y = init_y;
+        dx = init_dx;
+        dy = init_dy;
+    }
+};
+
+class Boxes {
 public:
+    std::vector<Box> boxes;
+    std::vector<sf::Vertex> vertices;
+
+    Boxes() {}
+
+    void Draw(sf::RenderWindow& window) {
+        window.draw(&vertices[0], vertices.size(), sf::LineStrip);
+    }
+
+    void NewBox(double x, double y, double dx, double dy, sf::Color color) {
+        Box box;
+        box.x = x;
+        box.y = y;
+        box.dx = dx;
+        box.dy = dy;
+        box.A = sf::Vertex(sf::Vector2f(x, y), color);
+        box.B = sf::Vertex(sf::Vector2f(x + dx, y), color);
+        box.C = sf::Vertex(sf::Vector2f(x + dx, y + dy), color);
+        box.D = sf::Vertex(sf::Vector2f(x, y + dy), color);
+        vertices.push_back(box.A);
+        vertices.push_back(box.B);
+        vertices.push_back(box.C);
+        vertices.push_back(box.D);
+        vertices.push_back(box.A);
+    }
+};
+Boxes boxes;
+
+class Spawn {
+public:
+    int x = 100;
+    int y = 100;
+    int dx = 400;
+    int dy = 400;
+
+    int margin = 30;
+
+    bool mouseDownUp = false;
+    bool mouseDownDown = false;
+    bool mouseDownLeft = false;
+    bool mouseDownRight = false;
+
+    std::vector<sf::Vertex> box;
+
+    std::vector<sf::Vertex> up;
+    std::vector<sf::Vertex> down;
+    std::vector<sf::Vertex> left;
+    std::vector<sf::Vertex> right;
+
+    sf::Color color = sf::Color(0, 255, 0);
+
+    Spawn() {}
+
+    void SetVertices() {
+        box.clear();
+        box.push_back(sf::Vertex(sf::Vector2f(x, y)));
+        box.push_back(sf::Vertex(sf::Vector2f(x + dx, y)));
+        box.push_back(sf::Vertex(sf::Vector2f(x + dx, y + dy)));
+        box.push_back(sf::Vertex(sf::Vector2f(x, y + dy)));
+        box.push_back(sf::Vertex(sf::Vector2f(x, y)));
+
+        up.clear();
+        up.push_back(sf::Vertex(sf::Vector2f(x - margin, y - margin), color));
+        up.push_back(sf::Vertex(sf::Vector2f(x + dx + margin, y - margin), color));
+        up.push_back(sf::Vertex(sf::Vector2f(x + dx + margin, y + margin), color));
+        up.push_back(sf::Vertex(sf::Vector2f(x - margin, y + margin), color));
+        up.push_back(sf::Vertex(sf::Vector2f(x - margin, y - margin), color));
+
+        down.clear();
+        down.push_back(sf::Vertex(sf::Vector2f(x - margin, y + dy - margin), color));
+        down.push_back(sf::Vertex(sf::Vector2f(x + dx + margin, y + dy - margin), color));
+        down.push_back(sf::Vertex(sf::Vector2f(x + dx + margin, y + dy + margin), color));
+        down.push_back(sf::Vertex(sf::Vector2f(x - margin, y + dy + margin), color));
+        down.push_back(sf::Vertex(sf::Vector2f(x - margin, y + dy - margin), color));
+    }
+
+    void DisplaySpawn(sf::RenderWindow& window) {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
+            window.draw(&box[0], box.size(), sf::LineStrip);
+            window.draw(&up[0], up.size(), sf::LineStrip);
+            window.draw(&down[0], down.size(), sf::LineStrip);
+        }
+    }
+
+    void DetermineMouseDown() {
+        if (sf::Keyboard::isKeyPressed(sf::Keyboard::LControl)) {
+            //if (mouse.x)
+        }
+    }
+};
+Spawn spawn;
+
+struct Particle {
     Vec2 pos;
     Vec2 vel;
     Vec2 acc;
@@ -147,13 +265,12 @@ public:
     int j = -1;
 
     Particle() {}
-
 };
 
 class Gas {
 public:
     int population = 1000;
-    double repulsive_force = 0.01;
+    double repulsive_force = 0.05;
     int cell_width = 20;
     double interaction_threshold = cell_width;
 
@@ -185,29 +302,15 @@ public:
         for (int i = 0; i < population; i++) {
             Particle particle;
             particle.id = i;
-            double x = (static_cast<double>(rand()) / RAND_MAX) * (game.screenWidth - 100) + 50;
-            double y = (static_cast<double>(rand()) / RAND_MAX) * (game.screenHeight - 100) + 50;
+            double x = (static_cast<double>(rand()) / RAND_MAX) * spawn.dx + spawn.x;
+            double y = (static_cast<double>(rand()) / RAND_MAX) * spawn.dy + spawn.y;
             SetPosition(particle, x, y);
             particles.push_back(particle);
         }
     }
 
-    void Respawn(Particle& particle) {
-        double x = (static_cast<double>(rand()) / RAND_MAX) * (game.screenWidth - 100) + 50;
-        double y = (static_cast<double>(rand()) / RAND_MAX) * (game.screenHeight - 100) + 50;
-        particle.vel.Zero();
-        particle.acc.Zero();
-        SetPosition(particle, x, y);
-    }
-
-    void RespawnOffScreen() {
-        for (Particle& particle : particles) {
-            if (particle.pos.x < 0 || particle.pos.x > game.screenWidth) { Respawn(particle); }
-            if (particle.pos.y < 0 || particle.pos.y > game.screenHeight) { Respawn(particle); }
-        }
-    }
-
     void Iterate() {
+        ClearCells();
         Partition();
         ClearAcc();
         Repulsion();
@@ -216,8 +319,16 @@ public:
         RespawnOffScreen();
     }
 
+    void ClearCells() {
+        for (int i = 0; i < cell_i_max; i++) {
+            for (int j = 0; j < cell_j_max; j++) {
+                std::vector<Particle*>& pointers = cells[i][j];
+                pointers.clear();
+            }
+        }
+    }
+
     void Partition() {
-        ClearCells();
         for (Particle& particle : particles) {
             int i = static_cast<int>(particle.pos.x) / cell_width;
             int j = static_cast<int>(particle.pos.y) / cell_width;
@@ -228,12 +339,9 @@ public:
         }
     }
 
-    void ClearCells() {
-        for (int i = 0; i < cell_i_max; i++) {
-            for (int j = 0; j < cell_j_max; j++) {
-                std::vector<Particle*>& pointers = cells[i][j];
-                pointers.clear();
-            }
+    void ClearAcc() {
+        for (Particle& particle : particles) {
+            particle.acc.Zero();
         }
     }
 
@@ -335,12 +443,6 @@ public:
         }
     }
 
-    void ClearAcc() {
-        for (Particle& particle : particles) {
-            particle.acc.Zero();
-        }
-    }
-
     void Step() {
         for (Particle& particle : particles) {
             particle.vel.x += particle.acc.x;
@@ -357,12 +459,29 @@ public:
         vertex.position.y = static_cast<float>(particle.pos.y);
     }
 
+    void RespawnOffScreen() {
+        for (Particle& particle : particles) {
+            if (particle.pos.x < 0 || particle.pos.x > game.screenWidth) { Respawn(particle); }
+            if (particle.pos.y < 0 || particle.pos.y > game.screenHeight) { Respawn(particle); }
+        }
+    }
+
+    void Respawn(Particle& particle) {
+        double x = (static_cast<double>(rand()) / RAND_MAX) * spawn.dx + spawn.x;
+        double y = (static_cast<double>(rand()) / RAND_MAX) * spawn.dy + spawn.y;
+        particle.vel.Zero();
+        particle.acc.Zero();
+        SetPosition(particle, x, y);
+    }
+
 };
 
 int main()
 {
     sf::RenderWindow window(sf::VideoMode(game.screenWidth, game.screenHeight), "Hello SFML", sf::Style::Close);
     sf::Clock clock;
+
+    spawn.SetVertices();
 
     Gas gas;
     gas.Initialise();
@@ -465,6 +584,7 @@ int main()
         window.draw(&horizontal[0], horizontal.size(), sf::Lines);
         window.draw(&verticle[0], verticle.size(), sf::Lines);
         window.draw(&gas.vertices[0], gas.vertices.size(), sf::Points);
+        spawn.DisplaySpawn(window);
         displayFPS.drawFPS(window, clock);
         window.display();
     }
